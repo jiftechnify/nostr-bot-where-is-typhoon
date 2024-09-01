@@ -1,6 +1,7 @@
 import { publishToRelays } from "./nostr.ts";
 import * as nip19 from "nostr-tools/nip19";
 import { NSecSigner } from "@nostrify/nostrify";
+import "@std/dotenv/load";
 
 const writeRelayURLs = [
   "wss://yabu.me",
