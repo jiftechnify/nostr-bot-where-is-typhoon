@@ -1,0 +1,8 @@
+services:
+  where_is_typhoon:
+    build:
+      context: .
+    container_name: where_is_typhoon
+    env_file:
+      - ./.env
+    restart: unless-stopped

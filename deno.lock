@@ -4,10 +4,8 @@
     "specifiers": {
       "jsr:@nostrify/nostrify@^0.30.1": "jsr:@nostrify/nostrify@0.30.1",
       "jsr:@nostrify/types@^0.30.0": "jsr:@nostrify/types@0.30.0",
-      "jsr:@std/assert@1": "jsr:@std/assert@1.0.3",
       "jsr:@std/dotenv@^0.225.1": "jsr:@std/dotenv@0.225.1",
       "jsr:@std/encoding@^0.224.1": "jsr:@std/encoding@0.224.3",
-      "jsr:@std/internal@^1.0.2": "jsr:@std/internal@1.0.2",
       "npm:@scure/bip32@^1.4.0": "npm:@scure/bip32@1.4.0",
       "npm:@scure/bip39@^1.3.0": "npm:@scure/bip39@1.3.0",
       "npm:lru-cache@^10.2.0": "npm:lru-cache@10.4.3",
@@ -34,20 +32,11 @@
       "@nostrify/types@0.30.0": {
         "integrity": "1f38fa849cff930bd709edbf94ef9ac02f46afb8b851f86c8736517b354616da"
       },
-      "@std/assert@1.0.3": {
-        "integrity": "b0d03ce1ced880df67132eea140623010d415848df66f6aa5df76507ca7c26d8",
-        "dependencies": [
-          "jsr:@std/internal@^1.0.2"
-        ]
-      },
       "@std/dotenv@0.225.1": {
         "integrity": "138f31352843d76cfb6cda1b860e8aac6d02ce3b05e7e236a81bf285a9868d0c"
       },
       "@std/encoding@0.224.3": {
         "integrity": "5e861b6d81be5359fad4155e591acf17c0207b595112d1840998bb9f476dbdaf"
-      },
-      "@std/internal@1.0.2": {
-        "integrity": "f4cabe2021352e8bfc24e6569700df87bf070914fc38d4b23eddd20108ac4495"
       }
     },
     "npm": {
@@ -101,8 +90,8 @@
         "integrity": "sha512-osvveYtyzdEVbt3OfwwXFr4P2iVBL5u1Q3q4ONBfDY/UpOuXmOlbgwc1xECEboY8wIays8Yt6onaWMUdUbfl0A==",
         "dependencies": {
           "@noble/curves": "@noble/curves@1.1.0",
-          "@noble/hashes": "@noble/hashes@1.3.1",
-          "@scure/base": "@scure/base@1.1.1"
+          "@noble/hashes": "@noble/hashes@1.3.2",
+          "@scure/base": "@scure/base@1.1.7"
         }
       },
       "@scure/bip32@1.4.0": {
@@ -116,8 +105,8 @@
       "@scure/bip39@1.2.1": {
         "integrity": "sha512-Z3/Fsz1yr904dduJD0NpiyRHhRYHdcnyh73FZWiV+/qhWi83wNJ3NWolYqCEN+ZWsUz2TWwajJggcRE9r1zUYg==",
         "dependencies": {
-          "@noble/hashes": "@noble/hashes@1.3.1",
-          "@scure/base": "@scure/base@1.1.1"
+          "@noble/hashes": "@noble/hashes@1.3.2",
+          "@scure/base": "@scure/base@1.1.7"
         }
       },
       "@scure/bip39@1.3.0": {
