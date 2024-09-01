@@ -153,18 +153,6 @@ async function fetchAllTCSpecs() {
   };
 }
 
-const readRelayURLs = [
-  "wss://yabu.me",
-  "wss://relay-jp.nostr.wirednet.jp",
-  "wss://nrelay.c-stellar.net",
-  "wss://nrelay-jp.c-stellar.net",
-];
-const writeRelayURLs = [
-  "wss://yabu.me",
-  "wss://relay-jp.nostr.wirednet.jp",
-  "wss://nrelay-jp.c-stellar.net",
-];
-
 const noTCs =
   "現在、台風または今後台風になると予想される熱帯低気圧は発生していません。";
 
@@ -296,7 +284,18 @@ function launchResponder({ pool, signer }: Context): void {
   serve().catch((e) => console.error(e));
 }
 
-// Learn more at https://docs.deno.com/runtime/manual/examples/module_metadata#concepts
+const readRelayURLs = [
+  "wss://yabu.me",
+  "wss://relay-jp.nostr.wirednet.jp",
+  "wss://nrelay.c-stellar.net",
+  "wss://nrelay-jp.c-stellar.net",
+];
+const writeRelayURLs = [
+  "wss://yabu.me",
+  "wss://relay-jp.nostr.wirednet.jp",
+  "wss://nrelay-jp.c-stellar.net",
+];
+
 if (import.meta.main) {
   const nsec = Deno.env.get("NOSTR_SECRET_KEY");
   if (!nsec || !nsec.startsWith("nsec1")) {
@@ -312,11 +311,13 @@ if (import.meta.main) {
       open(url) {
         return new NRelay1(url);
       },
-      async reqRouter(filters) {
-        return new Map(readRelayURLs.map((rurl) => [rurl, filters]));
+      reqRouter(filters) {
+        return Promise.resolve(
+          new Map(readRelayURLs.map((rurl) => [rurl, filters])),
+        );
       },
-      async eventRouter() {
-        return writeRelayURLs;
+      eventRouter() {
+        return Promise.resolve(writeRelayURLs);
       },
     });
 
