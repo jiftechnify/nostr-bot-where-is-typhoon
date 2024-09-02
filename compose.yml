@@ -1,8 +1,16 @@
 services:
-  where_is_typhoon:
+  bot:
     build:
-      context: .
-    container_name: where_is_typhoon
+      context: ./bot
+    container_name: where_is_typhoon_bot
     env_file:
-      - ./.env
+      - ./bot/.env
+    restart: unless-stopped
+
+  genmap:
+    build:
+      context: ./genmap
+    container_name: where_is_typhoon_genmap
+    env_file:
+      - ./genmap/.env
     restart: unless-stopped

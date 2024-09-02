@@ -2,6 +2,7 @@ import * as nip19 from "nostr-tools/nip19";
 import { NostrEventUnsigned } from "./nostr.ts";
 import { NPool, NRelay1, NSchema, NSecSigner } from "@nostrify/nostrify";
 import "@std/dotenv/load";
+import { GenmapClient, makeGenmapClient } from "./genmap.ts";
 
 const targetTcURL = "https://www.jma.go.jp/bosai/typhoon/data/targetTc.json";
 const tcSpecsURL = (tc: string) =>
@@ -120,16 +121,22 @@ function formatSpecLine2(body: TCSpecsBody): string {
   }m、最大瞬間風速は 秒速${body.maximumWind.gust["m/s"]}m です。`;
 }
 
-function formatTCSpecs([header, ...[body1]]: TCSpecs): string {
+async function formatTCSpecs(
+  [header, ...[body1]]: TCSpecs,
+  genmap: GenmapClient,
+): Promise<string> {
+  const mapImgUrl = await genmap({
+    typhoonNumber: header.typhoonNumber,
+    validtime: body1.validtime.JST,
+    latLng: body1.position.deg,
+  });
+
   const issueDatetimeLine = `(${formatDate(header.issue.JST)} 発表)`;
-  const mapLinkLine = `Map: https://www.openstreetmap.org/#map=10/${
-    body1.position.deg[0]
-  }/${body1.position.deg[1]}`;
   return [
     formatSpecLine1(header, body1),
     formatSpecLine2(body1),
     issueDatetimeLine,
-    mapLinkLine,
+    mapImgUrl,
   ].join("\n");
 }
 
@@ -160,15 +167,14 @@ const footer =
   "最新の台風情報については気象庁ホームページ https://www.jma.go.jp/bosai/map.html#contents=typhoon を参照してください。";
 
 let latestTCsExist = true;
-let latestIssueTime = "2024-09-01T13:05:00+09:00";
-let latestPostId =
-  "dd4760cd8ce4bfb9d1e326639d9c527b0b730c51f944013a7f6cbc35f5e7eebc";
+let latestIssueTime = "";
+let latestPostId = "";
 
 function currUnixtime(): number {
   return Math.floor(Date.now() / 1000);
 }
 
-async function composeTyphoonPositionPost(): Promise<
+async function composeTyphoonPositionPost(genmap: GenmapClient): Promise<
   NostrEventUnsigned | undefined
 > {
   const tcSpecs = await fetchAllTCSpecs();
@@ -201,7 +207,10 @@ async function composeTyphoonPositionPost(): Promise<
   latestTCsExist = true;
   latestIssueTime = tcSpecs.maxIssueTime;
 
-  const content = [...tcSpecs.allSpecs.map((s) => formatTCSpecs(s)), footer]
+  const formattedSpecs = await Promise.all(
+    tcSpecs.allSpecs.map((s) => formatTCSpecs(s, genmap)),
+  );
+  const content = [...formattedSpecs, footer]
     .join(
       "\n\n",
     );
@@ -216,12 +225,13 @@ async function composeTyphoonPositionPost(): Promise<
 type Context = {
   pool: NPool;
   signer: NSecSigner;
+  genmap: GenmapClient;
 };
 
-function postTyphoonPosition({ pool, signer }: Context) {
+function postTyphoonPosition({ pool, signer, genmap }: Context) {
   return async () => {
     try {
-      const post = await composeTyphoonPositionPost();
+      const post = await composeTyphoonPositionPost(genmap);
       if (post === undefined) {
         return;
       }
@@ -302,6 +312,11 @@ if (import.meta.main) {
     console.error("missing or invalid NOSTR_SECRET_KEY");
     Deno.exit(1);
   }
+  const genmapBaseUrl = Deno.env.get("GENMAP_BASE_URL");
+  if (!genmapBaseUrl) {
+    console.error("missing GENMAP_BASE_URL");
+    Deno.exit(1);
+  }
 
   try {
     const seckey = nip19.decode(nsec as `nsec1${string}`);
@@ -321,11 +336,17 @@ if (import.meta.main) {
       },
     });
 
-    // post on launch
-    await postTyphoonPosition({ pool, signer })();
+    const ctx: Context = {
+      signer,
+      pool,
+      genmap: makeGenmapClient(genmapBaseUrl),
+    };
 
-    Deno.cron("cron", "1-59/5 * * * *", postTyphoonPosition({ pool, signer }));
-    launchResponder({ pool, signer });
+    // post on launch
+    await postTyphoonPosition(ctx)();
+
+    Deno.cron("cron", "1-59/5 * * * *", postTyphoonPosition(ctx));
+    launchResponder(ctx);
   } catch (err) {
     console.error(err);
     Deno.exit(1);

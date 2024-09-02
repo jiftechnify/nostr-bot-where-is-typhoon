@@ -19,19 +19,19 @@ import (
 	"github.com/chai2010/webp"
 	sm "github.com/flopp/go-staticmaps"
 	"github.com/golang/geo/s2"
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatalf("failed to load .env: %v", err)
-	}
 	publicBaseURL := os.Getenv("R2_BUCKET_PUBLIC_BASE_URL")
 
 	r2Cli := initR2Cli()
-	handler := &genMapHandler{r2Cli, publicBaseURL}
+	handler := &genmapHandler{r2Cli, publicBaseURL}
 
 	http.Handle("POST /genmap", handler)
+	http.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		return
+	})
 
 	log.Println("listening on :8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
@@ -39,27 +39,27 @@ func main() {
 	}
 }
 
-type GenMapReq struct {
+type genmapReq struct {
 	TyphoonNumber string    `json:"typhoonNumber"`
 	Validtime     time.Time `json:"validtime"`
 	LatLng        []float64 `json:"latLng"`
 }
 
-type GenMapResp struct {
+type genmapResp struct {
 	URL string `json:"url"`
 }
 
-func mapImageName(req *GenMapReq, ext string) string {
+func mapImageName(req *genmapReq, ext string) string {
 	return fmt.Sprintf("%s/%s.%s", req.TyphoonNumber, req.Validtime.Format("200601021504"), ext)
 }
 
-type genMapHandler struct {
+type genmapHandler struct {
 	r2Cli         *r2Cli
 	publicBaseURL string
 }
 
-func (h *genMapHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var req GenMapReq
+func (h *genmapHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var req genmapReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Printf("failed to decode request: %+v", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -102,7 +102,7 @@ func (h *genMapHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	imgURL := fmt.Sprintf("%s/%s", h.publicBaseURL, imgPath)
-	resp := GenMapResp{
+	resp := genmapResp{
 		URL: imgURL,
 	}
 	log.Printf("uploading map image succeeded! (URL: %s)", imgURL)

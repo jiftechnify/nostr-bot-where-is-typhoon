@@ -9,7 +9,6 @@ require (
 	github.com/chai2010/webp v1.1.1
 	github.com/flopp/go-staticmaps v0.0.0-20240606055734-0bdd9c1c1478
 	github.com/golang/geo v0.0.0-20230421003525-6adc56603217
-	github.com/joho/godotenv v1.5.1
 )
 
 require (
