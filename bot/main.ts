@@ -20,7 +20,7 @@ function formatDate(jst: string): string {
 
 function formatTropicalCycloneName([header]: TCSpecs): string {
   if (header.name !== undefined) {
-    const typhoonNum = `台風${header.typhoonNumber.substring(2)}号`;
+    const typhoonNum = `台風${header.typhoonNumber.substring(2)}号(${header.name.jp})`;
     if (!header.category.jp.includes("台風")) {
       return `${typhoonNum}(${header.category.jp}に変化)`;
     }
