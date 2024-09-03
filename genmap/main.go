@@ -3,10 +3,13 @@ package main
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
+	"image/png"
 	"io"
 	"log"
 	"net/http"
@@ -22,10 +25,17 @@ import (
 )
 
 func main() {
-	publicBaseURL := os.Getenv("R2_BUCKET_PUBLIC_BASE_URL")
+	startServer()
+}
 
+func startServer() {
+	mapGen, err := initMapGen()
+	if err != nil {
+		log.Fatalf("failed to initialize mapGenerator: %v", err)
+	}
+	publicBaseURL := os.Getenv("R2_BUCKET_PUBLIC_BASE_URL")
 	r2Cli := initR2Cli()
-	handler := &genmapHandler{r2Cli, publicBaseURL}
+	handler := &genmapHandler{r2Cli, mapGen, publicBaseURL}
 
 	http.Handle("POST /genmap", handler)
 	http.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
@@ -39,10 +49,45 @@ func main() {
 	}
 }
 
+type latLngDegrees []float64
+
+func (l *latLngDegrees) UnmarshalJSON(data []byte) error {
+	a := make([]float64, 0, 2)
+	if err := json.Unmarshal(data, &a); err != nil {
+		return fmt.Errorf("LatLng.UnmarshalJSON failed to unmarshal to []float64: %w", err)
+	}
+	if len(a) < 2 {
+		return errors.New("LatLng.UnmarshalJSON array must have at least 2 elements")
+	}
+	*l = a[0:2]
+	return nil
+}
+
+func (l latLngDegrees) ToRadian() s2.LatLng {
+	return s2.LatLngFromDegrees([]float64(l)[0], []float64(l)[1])
+}
+
+type TCPosition struct {
+	Center           latLngDegrees  `json:"center"`
+	Track            tcTrack        `json:"track"`
+	StormWarningArea *tcWarningArea `json:"stormWarningArea"`
+	GaleWarningArea  *tcWarningArea `json:"galeWarningArea"`
+}
+
+type tcTrack struct {
+	PreTyphoon []latLngDegrees `json:"preTyphoon"`
+	Typhoon    []latLngDegrees `json:"typhoon"`
+}
+
+type tcWarningArea struct {
+	Center latLngDegrees `json:"center"`
+	Radius int           `json:"radius"`
+}
+
 type genmapReq struct {
 	TyphoonNumber string    `json:"typhoonNumber"`
 	Validtime     time.Time `json:"validtime"`
-	LatLng        []float64 `json:"latLng"`
+	TCPosition
 }
 
 type genmapResp struct {
@@ -55,6 +100,7 @@ func mapImageName(req *genmapReq, ext string) string {
 
 type genmapHandler struct {
 	r2Cli         *r2Cli
+	mapGen        *mapGenerator
 	publicBaseURL string
 }
 
@@ -72,14 +118,14 @@ func (h *genmapHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("genmap request: %v", req)
 
-	if len(req.LatLng) != 2 {
-		log.Printf("invalid latLng (%v)", req.LatLng)
+	if len(req.Center) != 2 {
+		log.Printf("invalid latLng (%v)", req.Center)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	log.Print("generating map image...")
-	img, err := generateMapImage(req.LatLng)
+	img, err := h.mapGen.generate(req.TCPosition)
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -115,19 +161,57 @@ func (h *genmapHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func generateMapImage(latLng []float64) (image.Image, error) {
-	pos := s2.LatLngFromDegrees(latLng[0], latLng[1])
+//go:embed res/tc_center.png
+var tcCenterPng []byte
 
+type mapGenerator struct {
+	centerIcon image.Image
+}
+
+func initMapGen() (*mapGenerator, error) {
+	img, err := png.Decode(bytes.NewReader(tcCenterPng))
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode image of center icon: %w", err)
+	}
+	return &mapGenerator{centerIcon: img}, nil
+}
+
+// warning area colors
+var (
+	colorStormAreaStroke = color.RGBA{255, 0, 0, 255}
+	colorStormAreaFill   = color.RGBA{160, 0, 0, 160}
+
+	colorGaleAreaStroke = color.RGBA{255, 255, 0, 255}
+	colorGaleAreaFill   = color.RGBA{160, 160, 0, 160}
+)
+
+func (g *mapGenerator) generate(pos TCPosition) (image.Image, error) {
 	ctx := sm.NewContext()
 	ctx.SetSize(600, 450)
-	ctx.SetZoom(6)
+	ctx.SetCenter(pos.Center.ToRadian())
 
-	marker := sm.NewMarker(
-		pos,
-		color.RGBA{255, 0, 0, 255},
-		16.0,
-	)
-	ctx.AddObject(marker)
+	// TODO: はみ出たときに表示が変になるので一旦表示しない
+	// track := make([]s2.LatLng, 0, len(pos.Track.Typhoon))
+	// for _, p := range pos.Track.Typhoon {
+	// 	track = append(track, p.ToRadian())
+	// }
+	// trackPath := sm.NewPath(track, color.RGBA{0, 0, 255, 255}, 2)
+	// ctx.AddObject(trackPath)
+
+	if pos.GaleWarningArea != nil {
+		gw := pos.GaleWarningArea
+		galeArea := sm.NewCircle(gw.Center.ToRadian(), colorGaleAreaStroke, colorGaleAreaFill, float64(gw.Radius), 3)
+		ctx.AddObject(galeArea)
+	}
+	if pos.StormWarningArea != nil {
+		sw := pos.StormWarningArea
+		stormArea := sm.NewCircle(sw.Center.ToRadian(), colorStormAreaStroke, colorStormAreaFill, float64(sw.Radius), 3)
+		ctx.AddObject(stormArea)
+	}
+
+	iconW, iconH := g.centerIcon.Bounds().Dx(), g.centerIcon.Bounds().Dy()
+	center := sm.NewImageMarker(pos.Center.ToRadian(), g.centerIcon, float64(iconW)/2, float64(iconH)/2)
+	ctx.AddObject(center)
 
 	img, err := ctx.Render()
 	if err != nil {
@@ -145,13 +229,11 @@ func initR2Cli() *r2Cli {
 	cfAccountID := os.Getenv("CF_ACCOUNT_ID")
 	bucketName := os.Getenv("R2_BUCKET_NAME")
 
-	// カスタム設定でセッションの作成
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		log.Fatalf("failed to load configuration, %v", err)
 	}
 
-	// S3クライアントの作成
 	s3Cli := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.BaseEndpoint = aws.String(fmt.Sprintf("https://%s.r2.cloudflarestorage.com", cfAccountID))
 	})
@@ -176,4 +258,23 @@ func (c *r2Cli) uploadFile(key string, r io.Reader, contentType string) error {
 		return fmt.Errorf("failed to upload image: %w", err)
 	}
 	return nil
+}
+
+func genTest() {
+	mapGen, err := initMapGen()
+	if err != nil {
+		log.Fatalf("failed to initialize mapGenerator: %v", err)
+	}
+	img, err := mapGen.generate(TCPosition{
+		Center:           latLngDegrees{18.5, 118.6},
+		StormWarningArea: nil,
+		GaleWarningArea:  &tcWarningArea{Center: latLngDegrees{18.5, 118.6}, Radius: 277800},
+	})
+	if err != nil {
+		log.Fatalf("failed to generate: %v", err)
+	}
+	f, _ := os.Create("gentest.webp")
+	defer f.Close()
+
+	_ = webp.Encode(f, img, nil)
 }
