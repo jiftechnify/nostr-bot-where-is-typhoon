@@ -10,7 +10,7 @@ export type TCWarningAreaCircle = {
 };
 
 export type TCWarningAreaArc = {
-  arc: [center: LatLng, radius: number, [number, number]];
+  arc: [center: LatLng, radius: number, [number, number]][];
 };
 
 export function isWarningAreaCircle(

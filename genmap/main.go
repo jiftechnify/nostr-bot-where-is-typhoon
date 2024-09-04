@@ -116,7 +116,7 @@ func (h *genmapHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.Body.Close()
 	}()
 
-	log.Printf("genmap request: %v", req)
+	log.Printf("genmap request: %+v", req)
 
 	if len(req.Center) != 2 {
 		log.Printf("invalid latLng (%v)", req.Center)

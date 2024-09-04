@@ -133,9 +133,13 @@ export function warningAreaToCircle(
   if (isWarningAreaCircle(wa)) {
     return wa;
   }
+  if (wa.arc.length === 0) {
+    console.error("warningArea.arc is empty");
+    return undefined;
+  }
   return {
-    center: wa.arc[0],
-    radius: wa.arc[1],
+    center: wa.arc[0][0],
+    radius: wa.arc[0][1],
   };
 }
 
