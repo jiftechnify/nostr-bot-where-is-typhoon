@@ -5,6 +5,9 @@ services:
     container_name: where_is_typhoon_bot
     env_file:
       - ./bot/.env
+    depends_on:
+      genmap:
+        condition: service_healthy
     restart: unless-stopped
 
   genmap:
@@ -13,4 +16,10 @@ services:
     container_name: where_is_typhoon_genmap
     env_file:
       - ./genmap/.env
+    healthcheck:
+      test: "curl -fs http://127.0.0.1:8080/health"
+      start_period: 2s
+      interval: 3s
+      timeout: 1s
+      retries: 3
     restart: unless-stopped
