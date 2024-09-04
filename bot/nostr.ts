@@ -41,8 +41,6 @@ export const publishToRelays = async (
     r.close();
   };
 
-  // const signed = finishEvent(ev, privateKey);
-
   console.info(`publishing event to ${relayUrls.length} relays...`);
   await Promise.allSettled(
     relayUrls.map((rurl) => Promise.race([pub(rurl, ev), timeout(rurl)])),
