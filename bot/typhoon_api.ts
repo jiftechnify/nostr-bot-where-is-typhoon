@@ -33,7 +33,7 @@ type TCForecastBody = {
   };
   center: LatLng;
   galeWarningArea?: TCForecastWarningArea;
-  stormWarningArea?: TCForecastWarningArea; // TODO: プロパティ名不確定
+  stormWarningArea?: TCForecastWarningArea;
 };
 
 export type TCForecast = [TCForecastHeader, ...TCForecastBody[]];

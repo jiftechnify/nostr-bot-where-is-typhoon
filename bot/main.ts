@@ -11,6 +11,11 @@ import {
 } from "./typhoon_api.ts";
 
 import "@std/dotenv/load";
+import {
+  isWarningAreaCircle,
+  TCWarningArea,
+  TCWarningAreaCircle,
+} from "./common_types.ts";
 
 function formatDate(jst: string): string {
   const dt = Temporal.ZonedDateTime.from(`${jst}[Asia/Tokyo]`);
@@ -20,7 +25,9 @@ function formatDate(jst: string): string {
 
 function formatTropicalCycloneName([header]: TCSpecs): string {
   if (header.name !== undefined) {
-    const typhoonNum = `台風${header.typhoonNumber.substring(2)}号(${header.name.jp})`;
+    const typhoonNum = `台風${
+      header.typhoonNumber.substring(2)
+    }号(${header.name.jp})`;
     if (!header.category.jp.includes("台風")) {
       return `${typhoonNum}(${header.category.jp}に変化)`;
     }
@@ -117,6 +124,21 @@ function currUnixtime(): number {
   return Math.floor(Date.now() / 1000);
 }
 
+export function warningAreaToCircle(
+  wa: TCWarningArea | undefined,
+): TCWarningAreaCircle | undefined {
+  if (wa === undefined) {
+    return undefined;
+  }
+  if (isWarningAreaCircle(wa)) {
+    return wa;
+  }
+  return {
+    center: wa.arc[0],
+    radius: wa.arc[1],
+  };
+}
+
 async function composeTyphoonPositionPost(genmap: GenmapClient): Promise<
   NostrEventUnsigned | undefined
 > {
@@ -155,18 +177,19 @@ async function composeTyphoonPositionPost(genmap: GenmapClient): Promise<
       async (
         {
           specs,
-          forecast: [_, ...[forecastBody1]],
+          forecast,
         },
       ) => {
         const [specsHeader, ...[specsBody1]] = specs;
+        const [_, ...[forecastBody1]] = forecast;
 
         const mapUrl = await genmap({
           typhoonNumber: specsHeader.typhoonNumber,
           validtime: specsBody1.validtime.JST,
           center: forecastBody1.center,
           track: forecastBody1.track,
-          stormWarningArea: forecastBody1.stormWarningArea,
-          galeWarningArea: forecastBody1.galeWarningArea,
+          stormWarningArea: warningAreaToCircle(forecastBody1.stormWarningArea),
+          galeWarningArea: warningAreaToCircle(forecastBody1.galeWarningArea),
         });
 
         return formatTCSpecs(specs, mapUrl);

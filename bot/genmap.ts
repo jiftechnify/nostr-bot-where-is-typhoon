@@ -1,12 +1,12 @@
-import { LatLng, TCTrack, TCWarningArea } from "./common_types.ts";
+import { LatLng, TCTrack, TCWarningAreaCircle } from "./common_types.ts";
 
 type GenmapReq = {
   typhoonNumber: string;
   validtime: string;
   center: LatLng;
   track: TCTrack;
-  stormWarningArea?: TCWarningArea;
-  galeWarningArea?: TCWarningArea;
+  stormWarningArea?: TCWarningAreaCircle;
+  galeWarningArea?: TCWarningAreaCircle;
 };
 
 type GenmapResp = {
